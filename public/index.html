@@ -31,9 +31,6 @@
   <input id="gold18" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
   <div class="sub" id="s_gold18"></div>
 
-  <label for="egp"><span class="ic">💰</span>جنيه مصري نقدًا (اختياري)</label>
-  <input id="egp" type="number" inputmode="decimal" min="0" placeholder="0">
-
   <label for="invest"><span class="ic">📈</span>أسهم بقيمتها السوقية</label>
   <input id="invest" type="number" inputmode="decimal" min="0" placeholder="0">
 
@@ -71,14 +68,14 @@
   <p class="note">النتيجة تعتمد على المعيار الذي تختاره. راجع دار الإفتاء أو أهل العلم في حال اختلاف الفتوى المحلية.</p>
 </div>
 
-<div class="card">
+<div class="card result-card">
   <h2>النتيجة</h2>
   <div class="line"><span>إجمالي الأصول الزكوية</span><b id="assets">0</b></div>
   <div class="line"><span>الخصومات</span><b id="deductions">0</b></div>
   <div class="line"><span>صافي المال الزكوي</span><b id="net">0</b></div>
   <div class="line"><span id="nisabLabel">النصاب</span><b id="nisab">0</b></div>
   <div id="state" class="state"></div>
-  <div class="res" style="margin-top:12px">
+  <div class="res">
     <div class="lbl">الزكاة الواجبة (2.5%)</div>
     <div class="big" id="zakat">0</div>
     <div class="lbl">جنيه مصري</div>
@@ -99,25 +96,50 @@ const GOLD_NISAB_GRAMS=85,SILVER_NISAB_GRAMS=595,RATE=0.025;
 const fmt=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2,useGrouping:true}).format(n||0);
 const fmtRate=n=>new Intl.NumberFormat('en-US',{maximumSignificantDigits:6}).format(n);
 const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:0};
-const inputIds=['gold24','gold21','gold18','egp','invest','receivable','debt','r_gold','r_prem','r_silver'];
+const inputIds=['gold24','gold21','gold18','invest','receivable','debt','r_gold','r_prem','r_silver'];
+const currencyNames=new Intl.DisplayNames('ar',{type:'currency',fallback:'none'});
+const regionNames=new Intl.DisplayNames('ar',{type:'region',fallback:'none'});
+const sharedCurrencies={
+  EUR:'منطقة اليورو',XAF:'دول وسط أفريقيا',XOF:'دول غرب أفريقيا',
+  XCD:'دول شرق الكاريبي',XPF:'أقاليم المحيط الهادئ الفرنسية',
+  XCG:'كوراساو وسينت مارتن',ANG:'كوراساو وسينت مارتن',
+  XDR:'صندوق النقد الدولي'
+};
 let currencyRates={EGP:1};
 let liveGold=null;
 let goldEdited=false;
 
+function normalizeSearch(value){
+  return value.toLocaleLowerCase('ar').normalize('NFD')
+    .replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').trim();
+}
+
 function currencyOptions(select,selected){
+  const row=select.closest('.currency-row');
+  const query=normalizeSearch(row.querySelector('.currency-search').value);
   const codes=new Set(Object.keys(currencyRates));
   if(selected) codes.add(selected);
   select.replaceChildren(new Option('اختر العملة',''));
-  [...codes].sort().forEach(code=>select.add(new Option(code,code)));
+  const options=[...codes].map(code=>{
+    const name=currencyNames.of(code);
+    const region=sharedCurrencies[code] || (code.startsWith('X')?null:regionNames.of(code.slice(0,2)));
+    const label=[region,name,code].filter(Boolean).join(' - ');
+    return {code,label};
+  });
+  options.sort((a,b)=>a.label.localeCompare(b.label,'ar'));
+  const matches=options.filter(({label})=>normalizeSearch(label).includes(query));
+  options.filter(({code,label})=>code===selected || normalizeSearch(label).includes(query))
+    .forEach(({code,label})=>select.add(new Option(label,code)));
+  row.querySelector('.search-status').textContent=query && !matches.length?'لا توجد عملات مطابقة للبحث.':'';
   select.value=selected;
 }
 
 function addCurrency(currency='',amount=''){
   const row=document.createElement('div');
   row.className='currency-row';
-  row.innerHTML='<div class="row"><select aria-label="العملة"></select><input type="number" inputmode="decimal" min="0" step="any" placeholder="0" aria-label="المبلغ"></div><div class="sub"></div><button type="button" class="remove-currency">حذف العملة</button>';
+  row.innerHTML='<input class="currency-search" type="search" placeholder="ابحث عن دولة أو عملة" aria-label="البحث عن دولة أو عملة"><div class="search-status" role="status"></div><div class="row"><select aria-label="العملة"></select><input class="currency-amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" aria-label="المبلغ"></div><div class="sub"></div><button type="button" class="remove-currency">حذف العملة</button>';
   currencyOptions(row.querySelector('select'),currency);
-  row.querySelector('input').value=amount;
+  row.querySelector('.currency-amount').value=amount;
   row.querySelector('button').addEventListener('click',()=>{row.remove();calc();save()});
   $('currencies').append(row);
 }
@@ -126,7 +148,7 @@ function calc(){
   let currencyTotal=0,invalidCurrency=false;
   $('currencies').querySelectorAll('.currency-row').forEach(row=>{
     const code=row.querySelector('select').value;
-    const input=row.querySelector('input'),amount=Number(input.value);
+    const input=row.querySelector('.currency-amount'),amount=Number(input.value);
     const rate=currencyRates[code];
     const sub=row.querySelector('.sub');
     if(input.validity.badInput || (input.value!=='' && (!Number.isFinite(amount) || amount<0))){
@@ -147,7 +169,7 @@ function calc(){
     $('s_gold'+karat).textContent=grams?'= '+fmt(value)+' جنيه':'';
   });
   const debt=num('debt');
-  const assets=currencyTotal+goldValue+num('egp')+num('invest')+num('receivable');
+  const assets=currencyTotal+goldValue+num('invest')+num('receivable');
   const net=Math.max(0,assets-debt);
   const nisabType=$('nisabType').value;
   const nisab=nisabType==='silver'?SILVER_NISAB_GRAMS*silver:GOLD_NISAB_GRAMS*rg;
@@ -173,7 +195,7 @@ function save(){
   const data={};
   inputIds.forEach(id=>data[id]=$(id).value);
   data.currencies=[...$('currencies').querySelectorAll('.currency-row')].map(row=>({
-    currency:row.querySelector('select').value,amount:row.querySelector('input').value
+    currency:row.querySelector('select').value,amount:row.querySelector('.currency-amount').value
   }));
   data.nisabType=$('nisabType').value;
   try{localStorage.setItem('zakat-calc-data',JSON.stringify(data))}
@@ -191,13 +213,19 @@ function load(){
     else {
       if(data.usd) addCurrency('USD',data.usd);
       if(data.aed) addCurrency('AED',data.aed);
-      if(!$('currencies').children.length) addCurrency();
     }
+    if(data.egp!==undefined && data.egp!=='') addCurrency('EGP',data.egp);
+    if(!$('currencies').children.length) addCurrency();
   }catch(e){$('storageStatus').textContent='تعذر استعادة البيانات المحفوظة.';addCurrency()}
 }
 
 document.addEventListener('input',event=>{
   if(!event.target.matches('input,select')) return;
+  if(event.target.matches('.currency-search')){
+    const select=event.target.closest('.currency-row').querySelector('select');
+    currencyOptions(select,select.value);
+    return;
+  }
   if(event.target.id==='r_gold') goldEdited=true;
   if(event.target.id==='r_prem' && liveGold && !goldEdited) applyGold();
   calc();save();
