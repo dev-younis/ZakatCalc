@@ -1,21 +1,34 @@
 async function prices() {
   try {
-    const [fxRes, goldRes] = await Promise.all([
+    const [fxRes, goldResult] = await Promise.all([
       fetch('https://open.er-api.com/v6/latest/USD'),
-      fetch('https://api.gold-api.com/price/XAU'),
+      fetch('https://api.gold-api.com/price/XAU')
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null),
     ]);
-    if (!fxRes.ok || !goldRes.ok) throw new Error('upstream response failed');
+    if (!fxRes.ok) throw new Error('exchange rates unavailable');
     const fx = await fxRes.json();
-    const gold = await goldRes.json();
-
-    const usdEgp = fx.rates.EGP;
-    const aedEgp = usdEgp / fx.rates.AED;
-    const xauUsd = gold.price; // USD per troy ounce
-    if (!usdEgp || !fx.rates.AED || !xauUsd) throw new Error('bad data');
-    const goldGramEgp = (xauUsd / 31.1035) * usdEgp; // 24k gram in EGP
+    const usdEgp = fx.rates?.EGP;
+    if (fx.result !== 'success' || !Number.isFinite(usdEgp) || usdEgp <= 0) {
+      throw new Error('invalid exchange rates');
+    }
+    const currencyRates = {};
+    for (const [code, rate] of Object.entries(fx.rates)) {
+      if (/^[A-Z]{3}$/.test(code) && Number.isFinite(rate) && rate > 0) {
+        currencyRates[code] = usdEgp / rate;
+      }
+    }
+    currencyRates.EGP = 1;
+    const xauUsd = goldResult?.price;
+    const goldGramEgp = Number.isFinite(xauUsd) && xauUsd > 0
+      ? (xauUsd / 31.1035) * usdEgp
+      : null;
+    const fxUpdated = Number.isFinite(fx.time_last_update_unix) && fx.time_last_update_unix > 0
+      ? new Date(fx.time_last_update_unix * 1000).toISOString()
+      : null;
 
     return new Response(
-      JSON.stringify({ usdEgp, aedEgp, xauUsd, goldGramEgp, updated: new Date().toISOString() }),
+      JSON.stringify({ usdEgp, aedEgp: currencyRates.AED, currencyRates, fxUpdated, goldGramEgp, updated: new Date().toISOString() }),
       { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' } }
     );
   } catch (e) {

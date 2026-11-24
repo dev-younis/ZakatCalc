@@ -15,31 +15,26 @@
 
 <div class="card">
   <h2>1) أموالك الزكوية</h2>
-  <label for="usd"><span class="ic">💵</span>دولار أمريكي (USD)</label>
-  <input id="usd" type="number" inputmode="decimal" min="0" placeholder="0">
-  <div class="sub" id="s_usd"></div>
+  <h3>💵 العملات</h3>
+  <div id="currencies"></div>
+  <button type="button" class="add-currency" id="addCurrency">إضافة عملة</button>
+  <p class="note">اختر العملات وأدخل المبالغ؛ التحويل للجنيه المصري حسب أسعار الصرف المتاحة.</p>
 
-  <label for="aed"><span class="ic">💴</span>درهم إماراتي (AED)</label>
-  <input id="aed" type="number" inputmode="decimal" min="0" placeholder="0">
-  <div class="sub" id="s_aed"></div>
-
-  <label for="gold"><span class="ic">🥇</span>الذهب (بالجرام)</label>
-  <input id="gold" type="number" inputmode="decimal" min="0" placeholder="0">
-  <div class="sub" id="s_gold"></div>
-  <label for="goldK">عيار الذهب</label>
-  <select id="goldK">
-    <option value="24">24</option>
-    <option value="21">21</option>
-    <option value="18">18</option>
-  </select>
+  <h3>🥇 الذهب بالجرام</h3>
+  <label for="gold24">ذهب عيار 24</label>
+  <input id="gold24" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+  <div class="sub" id="s_gold24"></div>
+  <label for="gold21">ذهب عيار 21</label>
+  <input id="gold21" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+  <div class="sub" id="s_gold21"></div>
+  <label for="gold18">ذهب عيار 18</label>
+  <input id="gold18" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+  <div class="sub" id="s_gold18"></div>
 
   <label for="egp"><span class="ic">💰</span>جنيه مصري نقدًا (اختياري)</label>
   <input id="egp" type="number" inputmode="decimal" min="0" placeholder="0">
 
-  <label for="trade"><span class="ic">📦</span>بضاعة جاهزة للبيع بقيمتها السوقية</label>
-  <input id="trade" type="number" inputmode="decimal" min="0" placeholder="0">
-
-  <label for="invest"><span class="ic">📈</span>استثمارات وأسهم زكوية بقيمتها السوقية</label>
+  <label for="invest"><span class="ic">📈</span>أسهم بقيمتها السوقية</label>
   <input id="invest" type="number" inputmode="decimal" min="0" placeholder="0">
 
   <label for="receivable"><span class="ic">🤝</span>ديون مستحقة لك على الغير وتُرجى تحصيلها</label>
@@ -55,11 +50,8 @@
 
 <div class="card">
   <h2>3) أسعار اليوم <span class="pill">قابلة للتعديل</span></h2>
-  <div class="rates">
-    <div><label for="r_usd">الدولار</label><input id="r_usd" type="number" inputmode="decimal" value="54.4"></div>
-    <div><label for="r_aed">الدرهم</label><input id="r_aed" type="number" inputmode="decimal" value="14.8"></div>
-    <div><label for="r_gold">جرام 24</label><input id="r_gold" type="number" inputmode="decimal" value="6320"></div>
-  </div>
+  <label for="r_gold">سعر جرام الذهب عيار 24 بالجنيه</label>
+  <input id="r_gold" type="number" inputmode="decimal" min="0" step="any" value="6320">
   <div id="live" class="note" style="margin:0 0 8px">⏳ جارٍ تحديث الأسعار…</div>
   <label for="r_prem">فرق سعر الصاغة عن السعر العالمي للذهب (%)</label>
   <input id="r_prem" type="number" inputmode="decimal" value="0" style="margin-bottom:8px">
@@ -97,6 +89,7 @@
   <button class="action" id="print" type="button">طباعة / حفظ PDF</button>
   <button class="reset" id="reset" type="button">مسح كل البيانات</button>
 </div>
+<p id="storageStatus" class="note" role="status"></p>
 <p class="note" style="text-align:center">الحساب استرشادي ولا يغني عن الرجوع لدار الإفتاء أو أهل العلم للحالات الخاصة. لا تُرسل بياناتك المالية إلى الخادم؛ الحفظ يكون على هذا الجهاز فقط.</p>
 </div>
 
@@ -104,105 +97,160 @@
 const $=id=>document.getElementById(id);
 const GOLD_NISAB_GRAMS=85,SILVER_NISAB_GRAMS=595,RATE=0.025;
 const fmt=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2,useGrouping:true}).format(n||0);
+const fmtRate=n=>new Intl.NumberFormat('en-US',{maximumSignificantDigits:6}).format(n);
 const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:0};
-const inputIds=['usd','aed','gold','egp','trade','invest','receivable','debt','r_usd','r_aed','r_gold','r_prem','r_silver'];
+const inputIds=['gold24','gold21','gold18','egp','invest','receivable','debt','r_gold','r_prem','r_silver'];
+let currencyRates={EGP:1};
+let liveGold=null;
+let goldEdited=false;
+
+function currencyOptions(select,selected){
+  const codes=new Set(Object.keys(currencyRates));
+  if(selected) codes.add(selected);
+  select.replaceChildren(new Option('اختر العملة',''));
+  [...codes].sort().forEach(code=>select.add(new Option(code,code)));
+  select.value=selected;
+}
+
+function addCurrency(currency='',amount=''){
+  const row=document.createElement('div');
+  row.className='currency-row';
+  row.innerHTML='<div class="row"><select aria-label="العملة"></select><input type="number" inputmode="decimal" min="0" step="any" placeholder="0" aria-label="المبلغ"></div><div class="sub"></div><button type="button" class="remove-currency">حذف العملة</button>';
+  currencyOptions(row.querySelector('select'),currency);
+  row.querySelector('input').value=amount;
+  row.querySelector('button').addEventListener('click',()=>{row.remove();calc();save()});
+  $('currencies').append(row);
+}
 
 function calc(){
-  const usd=num('usd'),aed=num('aed'),gold=num('gold'),egp=num('egp');
-  const trade=num('trade'),invest=num('invest'),receivable=num('receivable'),debt=num('debt');
-  const ru=num('r_usd'),ra=num('r_aed'),rg=num('r_gold'),silver=num('r_silver');
-  const karat=parseFloat($('goldK').value)||24;
-  const vUsd=usd*ru,vAed=aed*ra,vGold=gold*rg*(karat/24);
-  const assets=vUsd+vAed+vGold+egp+trade+invest+receivable;
+  let currencyTotal=0,invalidCurrency=false;
+  $('currencies').querySelectorAll('.currency-row').forEach(row=>{
+    const code=row.querySelector('select').value;
+    const input=row.querySelector('input'),amount=Number(input.value);
+    const rate=currencyRates[code];
+    const sub=row.querySelector('.sub');
+    if(input.validity.badInput || (input.value!=='' && (!Number.isFinite(amount) || amount<0))){
+      invalidCurrency=true;sub.textContent='أدخل مبلغًا صحيحًا غير سالب.';
+    }else if(amount>0 && (!code || !Number.isFinite(rate) || rate<=0)){
+      invalidCurrency=true;sub.textContent='اختر عملة يتوفر سعر صرفها قبل الحساب.';
+    }else if(amount>0){
+      currencyTotal+=amount*rate;
+      sub.textContent='= '+fmt(amount*rate)+' جنيه (1 '+code+' = '+fmtRate(rate)+' جنيه)';
+    }else sub.textContent='';
+  });
+  const rg=num('r_gold'),silver=num('r_silver');
+  let goldValue=0,invalidGold=false;
+  [24,21,18].forEach(karat=>{
+    const input=$('gold'+karat),grams=num('gold'+karat),value=grams*rg*karat/24;
+    if(input.validity.badInput || (input.value!=='' && (!Number.isFinite(Number(input.value)) || Number(input.value)<0))) invalidGold=true;
+    goldValue+=value;
+    $('s_gold'+karat).textContent=grams?'= '+fmt(value)+' جنيه':'';
+  });
+  const debt=num('debt');
+  const assets=currencyTotal+goldValue+num('egp')+num('invest')+num('receivable');
   const net=Math.max(0,assets-debt);
   const nisabType=$('nisabType').value;
   const nisab=nisabType==='silver'?SILVER_NISAB_GRAMS*silver:GOLD_NISAB_GRAMS*rg;
+  const invalid=invalidCurrency || invalidGold;
 
-  $('s_usd').textContent=usd?'= '+fmt(vUsd)+' جنيه':'';
-  $('s_aed').textContent=aed?'= '+fmt(vAed)+' جنيه':'';
-  $('s_gold').textContent=gold?'= '+fmt(vGold)+' جنيه':'';
-  $('assets').textContent=fmt(assets)+' ج.م';
+  $('assets').textContent=invalid?'—':fmt(assets)+' ج.م';
   $('deductions').textContent=fmt(debt)+' ج.م';
-  $('net').textContent=fmt(net)+' ج.م';
+  $('net').textContent=invalid?'—':fmt(net)+' ج.م';
   $('nisabLabel').textContent=nisabType==='silver'?'النصاب (595 جرام فضة)':'النصاب (85 جرام ذهب 24)';
   $('nisab').textContent=fmt(nisab)+' ج.م';
 
   const reached=net>=nisab&&net>0;
   const st=$('state'); let z=0;
-  if(!net){st.className='state';st.textContent='أدخل أموالك وخصوماتك لنحسب الزكاة.'}
+  if(invalidCurrency){st.className='state no';st.textContent='تعذر حساب الزكاة حتى تتوفر أسعار العملات المدخلة وتصح المبالغ.'}
+  else if(invalidGold){st.className='state no';st.textContent='أدخل أوزان ذهب صحيحة غير سالبة.'}
+  else if(!net){st.className='state';st.textContent='أدخل أموالك وخصوماتك لنحسب الزكاة.'}
   else if(!reached){st.className='state no';st.textContent='المبلغ أقل من النصاب، فلا زكاة عليك حاليًا.'}
   else{st.className='state';st.textContent='بلغ الصافي النصاب بحسب المعيار الذي اخترته.';z=net*RATE}
-  $('zakat').textContent=fmt(z);
-  save();
+  $('zakat').textContent=invalid?'—':fmt(z);
 }
 
 function save(){
   const data={};
   inputIds.forEach(id=>data[id]=$(id).value);
-  data.goldK=$('goldK').value;
+  data.currencies=[...$('currencies').querySelectorAll('.currency-row')].map(row=>({
+    currency:row.querySelector('select').value,amount:row.querySelector('input').value
+  }));
   data.nisabType=$('nisabType').value;
-  try{localStorage.setItem('zakat-calc-data',JSON.stringify(data))}catch(e){}
+  try{localStorage.setItem('zakat-calc-data',JSON.stringify(data))}
+  catch(e){$('storageStatus').textContent='تعذر حفظ البيانات على هذا الجهاز.'}
 }
 
 function load(){
   try{
     const data=JSON.parse(localStorage.getItem('zakat-calc-data'));
-    if(!data) return;
+    if(!data){addCurrency();return}
     inputIds.forEach(id=>{if(Object.prototype.hasOwnProperty.call(data,id)) $(id).value=data[id]});
-    if(data.goldK) $('goldK').value=data.goldK;
+    if(data.gold && ['24','21','18'].includes(data.goldK)) $('gold'+data.goldK).value=data.gold;
     if(data.nisabType) $('nisabType').value=data.nisabType;
-  }catch(e){}
+    if(Array.isArray(data.currencies)) data.currencies.forEach(item=>addCurrency(item.currency,item.amount));
+    else {
+      if(data.usd) addCurrency('USD',data.usd);
+      if(data.aed) addCurrency('AED',data.aed);
+      if(!$('currencies').children.length) addCurrency();
+    }
+  }catch(e){$('storageStatus').textContent='تعذر استعادة البيانات المحفوظة.';addCurrency()}
 }
 
-document.querySelectorAll('input,select').forEach(i=>i.addEventListener('input',calc));
+document.addEventListener('input',event=>{
+  if(!event.target.matches('input,select')) return;
+  if(event.target.id==='r_gold') goldEdited=true;
+  if(event.target.id==='r_prem' && liveGold && !goldEdited) applyGold();
+  calc();save();
+});
+$('addCurrency').onclick=()=>{addCurrency();save()};
 $('reset').onclick=()=>{
   inputIds.forEach(id=>$(id).value='');
-  $('goldK').value='24';
+  $('currencies').replaceChildren();
+  addCurrency();
   $('nisabType').value='gold';
-  $('r_usd').value='54.4';
-  $('r_aed').value='14.8';
   $('r_gold').value='6320';
   $('r_silver').value='95';
   $('r_prem').value='0';
-  try{localStorage.removeItem('zakat-calc-data')}catch(e){}
-  calc();
+  goldEdited=false;
+  if(liveGold) applyGold();
+  calc();save();
 };
 $('print').onclick=()=>window.print();
 load();
 calc();
 
+function applyGold(){
+  const premium=parseFloat($('r_prem').value)||0;
+  $('r_gold').value=(liveGold*(1+premium/100)).toFixed(0);
+}
+
 (async function(){
-  let last=null;
-  const apply=()=>{
-    if(!last||!last.goldGramEgp) return;
-    const prem=parseFloat($('r_prem').value)||0;
-    $('r_gold').value=(last.goldGramEgp*(1+prem/100)).toFixed(0);
-    calc();
-  };
   try{
     const r=await fetch('/api/prices',{cache:'no-store'});
-    if(!r.ok) throw 0;
-    last=await r.json();
-    if(last.usdEgp) $('r_usd').value=last.usdEgp.toFixed(2);
-    if(last.aedEgp) $('r_aed').value=last.aedEgp.toFixed(2);
-    if(last.goldGramEgp){
-      const prem=parseFloat($('r_prem').value)||0;
-      $('r_gold').value=(last.goldGramEgp*(1+prem/100)).toFixed(0);
+    if(!r.ok) throw new Error('exchange rates unavailable');
+    const last=await r.json();
+    if(!last.currencyRates || typeof last.currencyRates!=='object') throw new Error('invalid exchange rates');
+    currencyRates=last.currencyRates;
+    currencyRates.EGP=1;
+    $('currencies').querySelectorAll('select').forEach(select=>currencyOptions(select,select.value));
+    if(Number.isFinite(last.goldGramEgp) && last.goldGramEgp>0){
+      liveGold=last.goldGramEgp;
+      if(!goldEdited) applyGold();
     }
-    const updated=new Date(last.updated);
-    const age=last.updated?Math.floor((Date.now()-updated.getTime())/864e5):Infinity;
+    const updated=last.fxUpdated?new Date(last.fxUpdated):null;
+    const age=updated && !isNaN(updated)?Math.floor((Date.now()-updated.getTime())/864e5):null;
     const stale=$('stale');
-    if(age>=1){
+    if(age===null || age>=1){
       stale.style.display='block';
-      stale.innerHTML='⚠️ هذه الأسعار عمرها '+fmt(age)+' يوم وقد تغيّرت. تحقق منها قبل الحساب.';
+      stale.textContent=age===null?'⚠️ وقت تحديث أسعار الصرف غير متوفر. تحقق منها قبل الحساب.':'⚠️ عمر أسعار الصرف '+fmt(age)+' يوم. تحقق منها قبل الحساب.';
     }else{
       stale.style.display='none';
     }
-    $('live').innerHTML='✅ تم تحديث الأسعار الآن'+(last.updated?' ('+updated.toLocaleString('en-US')+')':'')+': <a href="https://www.google.com/search?q=سعر+الدولار+اليوم+البنك+الأهلي" target="_blank" rel="noopener" style="color:inherit">الدولار</a> · <a href="https://www.google.com/search?q=سعر+الذهب+عيار+24+اليوم+في+مصر" target="_blank" rel="noopener" style="color:inherit">الذهب</a>';
-    $('r_prem').addEventListener('input',apply);
-    calc();
+    $('live').textContent='أسعار الصرف: open.er-api.com'+(age!==null?' (آخر تحديث: '+updated.toLocaleString('en-US')+')':'')+(liveGold?'، وسعر الذهب العالمي: gold-api.com.':'؛ تعذر تحديث سعر الذهب، تحقق منه يدويًا.');
+    calc();save();
   }catch(e){
-    $('live').textContent='⚠️ تعذر التحديث التلقائي، عدّل الأسعار يدويًا.';
+    $('live').textContent='⚠️ تعذر تحديث أسعار الصرف. تحقق من اتصالك وأعد تحميل الصفحة.';
+    calc();
   }
 })();
 </script>

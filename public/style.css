@@ -40,11 +40,14 @@ select{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid
 .actions{display:flex;gap:8px}
 .action,.reset{width:100%;margin-top:6px;padding:12px;border-radius:12px;border:1px solid var(--bd)}
 .action{background:var(--pri);color:#fff}
+.currency-row{margin-bottom:10px}
+.currency-row .row>*{flex:1}
+.add-currency,.remove-currency{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--pri);padding:6px 10px}
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--bd:#999}
   body{background:#fff}
   .wrap{max-width:none;padding:0}
-  .actions,.rates,.pill{display:none}
+  .actions,.rates,.pill,.add-currency,.remove-currency{display:none}
   .card{break-inside:avoid}
   input,select{border:0;padding:4px 0;background:#fff}
 }
