@@ -56,7 +56,7 @@ button{font:inherit;cursor:pointer}
 </header>
 
 <div class="card">
-  <h2>١) ما تملكه</h2>
+  <h2>1) ما تملكه</h2>
   <label for="usd"><span class="ic">💵</span>دولار أمريكي (USD)</label>
   <input id="usd" type="number" inputmode="decimal" min="0" placeholder="0">
   <div class="sub" id="s_usd"></div>
@@ -65,7 +65,7 @@ button{font:inherit;cursor:pointer}
   <input id="aed" type="number" inputmode="decimal" min="0" placeholder="0">
   <div class="sub" id="s_aed"></div>
 
-  <label for="gold"><span class="ic">🥇</span>ذهب عيار ٢٤ (بالجرام)</label>
+  <label for="gold"><span class="ic">🥇</span>ذهب عيار 24 (بالجرام)</label>
   <input id="gold" type="number" inputmode="decimal" min="0" placeholder="0">
   <div class="sub" id="s_gold"></div>
 
@@ -74,21 +74,21 @@ button{font:inherit;cursor:pointer}
 </div>
 
 <div class="card">
-  <h2>٢) أسعار اليوم <span class="pill">قابلة للتعديل</span></h2>
+  <h2>2) أسعار اليوم <span class="pill">قابلة للتعديل</span></h2>
   <div class="rates">
     <div><label for="r_usd">الدولار</label><input id="r_usd" type="number" inputmode="decimal" value="54.4"></div>
     <div><label for="r_aed">الدرهم</label><input id="r_aed" type="number" inputmode="decimal" value="14.8"></div>
-    <div><label for="r_gold">جرام ٢٤</label><input id="r_gold" type="number" inputmode="decimal" value="6320"></div>
+    <div><label for="r_gold">جرام 24</label><input id="r_gold" type="number" inputmode="decimal" value="6320"></div>
   </div>
   <div id="live" class="note" style="margin:0 0 8px">⏳ جارٍ تحديث الأسعار…</div>
-  <label for="r_prem">فرق سعر الصاغة عن السعر العالمي للذهب (٪)</label>
+  <label for="r_prem">فرق سعر الصاغة عن السعر العالمي للذهب (%)</label>
   <input id="r_prem" type="number" inputmode="decimal" value="0" style="margin-bottom:8px">
   <div id="stale" class="state no" style="display:none"></div>
-  <p class="note">الأسعار تقريبية بتاريخ ٢٣ نوفمبر ٢٠٢٦ (الدولار من البنك الأهلي ≈ ٥٤٫٤، والذهب من السوق المحلي، والدرهم محسوب من الدولار). عدّلها حسب سعر اليوم الذي تعتمده.</p>
+  <p class="note">الأسعار تقريبية بتاريخ 23 نوفمبر 2026 (الدولار من البنك الأهلي ≈ 54.4، والذهب من السوق المحلي، والدرهم محسوب من الدولار). عدّلها حسب سعر اليوم الذي تعتمده.</p>
 </div>
 
 <div class="card">
-  <h2>٣) الحول (سنة هجرية)</h2>
+  <h2>3) الحول (سنة هجرية)</h2>
   <label for="start">تاريخ بلوغ المال النصاب (أو آخر زكاة أخرجتها)</label>
   <input id="start" type="date">
   <div class="hawl" id="hawlBox">اختر التاريخ لنحسب موعد الحول بالتاريخ الهجري، أو علّم المربع أدناه.</div>
@@ -97,12 +97,12 @@ button{font:inherit;cursor:pointer}
 
 <div class="card">
   <h2>النتيجة</h2>
-  <div class="line"><span>إجمالي الأموال</span><b id="total">٠</b></div>
-  <div class="line"><span>النصاب (٨٥ جرام ذهب ٢٤)</span><b id="nisab">٠</b></div>
+  <div class="line"><span>إجمالي الأموال</span><b id="total">0</b></div>
+  <div class="line"><span>النصاب (85 جرام ذهب 24)</span><b id="nisab">0</b></div>
   <div id="state" class="state"></div>
   <div class="res" style="margin-top:12px">
-    <div class="lbl">الزكاة الواجبة (٢٫٥٪)</div>
-    <div class="big" id="zakat">٠</div>
+    <div class="lbl">الزكاة الواجبة (2.5%)</div>
+    <div class="big" id="zakat">0</div>
     <div class="lbl">جنيه مصري</div>
   </div>
 </div>
@@ -114,9 +114,9 @@ button{font:inherit;cursor:pointer}
 <script>
 const $=id=>document.getElementById(id);
 const NISAB_GRAMS=85,RATE=0.025,HAWL_DAYS=354;
-const fmt=n=>new Intl.NumberFormat('ar-EG',{maximumFractionDigits:2}).format(n||0);
+const fmt=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2,useGrouping:true}).format(n||0);
 const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>0?v:0};
-const hijri=d=>new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(d);
+const hijri=d=>new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(d);
 
 function hawlInfo(){
   const v=$('start').value; if(!v) return null;
@@ -188,7 +188,7 @@ calc();
     $('r_aed').value=last.aedEgp.toFixed(2);
     apply();
     $('stale').style.display='none';
-    $('live').textContent='✅ تم تحديث الأسعار الآن: '+new Date(last.updated).toLocaleString('ar-EG');
+    $('live').textContent='✅ تم تحديث الأسعار الآن: '+new Date(last.updated).toLocaleString('en-US');
     $('r_prem').addEventListener('input',apply);
   }catch(e){
     $('live').textContent='⚠️ تعذر التحديث التلقائي، عدّل الأسعار يدويًا.';
