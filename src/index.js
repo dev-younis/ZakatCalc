@@ -4,6 +4,7 @@ async function prices() {
       fetch('https://open.er-api.com/v6/latest/USD'),
       fetch('https://api.gold-api.com/price/XAU'),
     ]);
+    if (!fxRes.ok || !goldRes.ok) throw new Error('upstream response failed');
     const fx = await fxRes.json();
     const gold = await goldRes.json();
 
