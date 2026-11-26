@@ -27,9 +27,9 @@
   <label for="gold21">ذهب عيار 21</label>
   <input id="gold21" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
   <div class="sub" id="s_gold21"></div>
-  <label for="gold18">ذهب عيار 18</label>
-  <input id="gold18" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
-  <div class="sub" id="s_gold18"></div>
+  <label for="goldCoins21">عملات ذهبية عيار 21 (إجمالي الوزن بالجرام)</label>
+  <input id="goldCoins21" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+  <div class="sub" id="s_goldCoins21"></div>
 
   <label for="invest"><span class="ic">📈</span>أسهم بقيمتها السوقية</label>
   <input id="invest" type="number" inputmode="decimal" min="0" placeholder="0">
@@ -96,14 +96,19 @@ const GOLD_NISAB_GRAMS=85,SILVER_NISAB_GRAMS=595,RATE=0.025;
 const fmt=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:2,useGrouping:true}).format(n||0);
 const fmtRate=n=>new Intl.NumberFormat('en-US',{maximumSignificantDigits:6}).format(n);
 const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:0};
-const inputIds=['gold24','gold21','gold18','invest','receivable','debt','r_gold','r_prem','r_silver'];
+const inputIds=['gold24','gold21','goldCoins21','invest','receivable','debt','r_gold','r_prem','r_silver'];
 const currencyNames=new Intl.DisplayNames('ar',{type:'currency',fallback:'none'});
 const regionNames=new Intl.DisplayNames('ar',{type:'region',fallback:'none'});
-const sharedCurrencies={
-  EUR:'منطقة اليورو',XAF:'دول وسط أفريقيا',XOF:'دول غرب أفريقيا',
-  XCD:'دول شرق الكاريبي',XPF:'أقاليم المحيط الهادئ الفرنسية',
-  XCG:'كوراساو وسينت مارتن',ANG:'كوراساو وسينت مارتن',
-  XDR:'صندوق النقد الدولي'
+const englishCurrencyNames=new Intl.DisplayNames('en',{type:'currency',fallback:'none'});
+const englishRegionNames=new Intl.DisplayNames('en',{type:'region',fallback:'none'});
+const currencyCountries={
+  USD:['US'],EUR:['AT','BE','BG','HR','CY','EE','FI','FR','DE','GR','IE','IT','LV','LT','LU','MT','NL','PT','SK','SI','ES','AD','MC','SM','VA','ME','XK'],
+  GBP:['GB'],CHF:['CH','LI'],NOK:['NO'],SEK:['SE'],DKK:['DK'],ISK:['IS'],
+  PLN:['PL'],CZK:['CZ'],HUF:['HU'],RON:['RO'],RSD:['RS'],BAM:['BA'],MKD:['MK'],
+  ALL:['AL'],MDL:['MD'],UAH:['UA'],BYN:['BY'],RUB:['RU'],TRY:['TR'],
+  GEL:['GE'],AMD:['AM'],AZN:['AZ'],
+  EGP:['EG'],AED:['AE'],SAR:['SA'],QAR:['QA'],KWD:['KW'],BHD:['BH'],OMR:['OM'],
+  JOD:['JO'],LBP:['LB'],SYP:['SY'],IQD:['IQ'],IRR:['IR'],YER:['YE']
 };
 let currencyRates={EGP:1};
 let liveGold=null;
@@ -117,18 +122,20 @@ function normalizeSearch(value){
 function currencyOptions(select,selected){
   const row=select.closest('.currency-row');
   const query=normalizeSearch(row.querySelector('.currency-search').value);
-  const codes=new Set(Object.keys(currencyRates));
-  if(selected) codes.add(selected);
   select.replaceChildren(new Option('اختر العملة',''));
-  const options=[...codes].map(code=>{
+  const options=Object.entries(currencyCountries).map(([code,countries])=>{
     const name=currencyNames.of(code);
-    const region=sharedCurrencies[code] || (code.startsWith('X')?null:regionNames.of(code.slice(0,2)));
+    const region=code==='EUR'?'منطقة اليورو':regionNames.of(countries[0]);
     const label=[region,name,code].filter(Boolean).join(' - ');
-    return {code,label};
+    const terms=[label,englishCurrencyNames.of(code),...countries.flatMap(country=>[regionNames.of(country),englishRegionNames.of(country)])];
+    return {code,label,search:normalizeSearch(terms.filter(Boolean).join(' '))};
   });
   options.sort((a,b)=>a.label.localeCompare(b.label,'ar'));
-  const matches=options.filter(({label})=>normalizeSearch(label).includes(query));
-  options.filter(({code,label})=>code===selected || normalizeSearch(label).includes(query))
+  const matches=options.filter(({search})=>search.includes(query));
+  if(selected && !Object.hasOwn(currencyCountries,selected)){
+    select.add(new Option('عملة محفوظة غير مدعومة - '+selected,selected));
+  }
+  options.filter(({code,search})=>code===selected || search.includes(query))
     .forEach(({code,label})=>select.add(new Option(label,code)));
   row.querySelector('.search-status').textContent=query && !matches.length?'لا توجد عملات مطابقة للبحث.':'';
   select.value=selected;
@@ -153,7 +160,7 @@ function calc(){
     const sub=row.querySelector('.sub');
     if(input.validity.badInput || (input.value!=='' && (!Number.isFinite(amount) || amount<0))){
       invalidCurrency=true;sub.textContent='أدخل مبلغًا صحيحًا غير سالب.';
-    }else if(amount>0 && (!code || !Number.isFinite(rate) || rate<=0)){
+    }else if(amount>0 && (!Object.hasOwn(currencyCountries,code) || !Number.isFinite(rate) || rate<=0)){
       invalidCurrency=true;sub.textContent='اختر عملة يتوفر سعر صرفها قبل الحساب.';
     }else if(amount>0){
       currencyTotal+=amount*rate;
@@ -162,11 +169,11 @@ function calc(){
   });
   const rg=num('r_gold'),silver=num('r_silver');
   let goldValue=0,invalidGold=false;
-  [24,21,18].forEach(karat=>{
-    const input=$('gold'+karat),grams=num('gold'+karat),value=grams*rg*karat/24;
+  [['gold24',24],['gold21',21],['goldCoins21',21]].forEach(([id,karat])=>{
+    const input=$(id),grams=num(id),value=grams*rg*karat/24;
     if(input.validity.badInput || (input.value!=='' && (!Number.isFinite(Number(input.value)) || Number(input.value)<0))) invalidGold=true;
     goldValue+=value;
-    $('s_gold'+karat).textContent=grams?'= '+fmt(value)+' جنيه':'';
+    $('s_'+id).textContent=grams?'= '+fmt(value)+' جنيه':'';
   });
   const debt=num('debt');
   const assets=currencyTotal+goldValue+num('invest')+num('receivable');
@@ -207,7 +214,7 @@ function load(){
     const data=JSON.parse(localStorage.getItem('zakat-calc-data'));
     if(!data){addCurrency();return}
     inputIds.forEach(id=>{if(Object.prototype.hasOwnProperty.call(data,id)) $(id).value=data[id]});
-    if(data.gold && ['24','21','18'].includes(data.goldK)) $('gold'+data.goldK).value=data.gold;
+    if(data.gold && ['24','21'].includes(data.goldK)) $('gold'+data.goldK).value=data.gold;
     if(data.nisabType) $('nisabType').value=data.nisabType;
     if(Array.isArray(data.currencies)) data.currencies.forEach(item=>addCurrency(item.currency,item.amount));
     else {
