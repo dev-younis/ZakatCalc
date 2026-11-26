@@ -20,7 +20,7 @@ function calculator() {
   return { context, element };
 }
 
-function search(context, query, selected = '') {
+function search(context, query, selected = '', autoSelect = false) {
   const row = {
     querySelector(selector) {
       return selector === '.currency-search' ? { value: query } : this.status;
@@ -35,8 +35,9 @@ function search(context, query, selected = '') {
   };
   context.select = select;
   context.selected = selected;
-  runInContext('currencyOptions(select, selected)', context);
-  return { codes: select.options.map(option => option.value), status: row.status.textContent };
+  context.autoSelect = autoSelect;
+  runInContext('currencyOptions(select, selected, autoSelect)', context);
+  return { codes: select.options.map(option => option.value), selected: select.value, status: row.status.textContent };
 }
 
 test('searches supported currencies by Arabic and English country or currency', () => {
@@ -50,20 +51,31 @@ test('searches supported currencies by Arabic and English country or currency', 
   assert.ok(search(context, 'France', 'USD').codes.includes('USD'));
 });
 
-test('values 21K coins by weight, validates and resets their displayed value', () => {
+test('automatically selects a unique search result but preserves selections for ambiguous searches and refreshes', () => {
+  const { context } = calculator();
+  assert.equal(search(context, 'France', 'USD', true).selected, 'EUR');
+  assert.equal(search(context, 'ريال', 'SAR', true).selected, 'SAR');
+  assert.equal(search(context, 'France', '', false).selected, '');
+  assert.equal(search(context, 'Japan', 'USD', true).selected, 'USD');
+});
+
+test('values quarter 21K coins by count, validates and resets their displayed value', () => {
   const { context, element } = calculator();
   element('r_gold').value = '2400';
-  element('goldCoins21').value = '100';
+  element('goldCoins21Count').value = '12.5';
   runInContext('calc()', context);
   assert.equal(element('assets').textContent, '210,000 ج.م');
   assert.equal(element('zakat').textContent, '5,250');
-  element('goldCoins21').value = '-1';
+  element('goldCoins21Count').value = '0.25';
+  runInContext('calc()', context);
+  assert.equal(element('assets').textContent, '4,200 ج.م');
+  element('goldCoins21Count').value = '-1';
   runInContext('calc()', context);
   assert.equal(element('assets').textContent, '—');
-  assert.match(element('state').textContent, /أوزان ذهب صحيحة/);
-  element('goldCoins21').value = '';
+  assert.match(element('state').textContent, /عدد العملات/);
+  element('goldCoins21Count').value = '';
   runInContext('calc()', context);
-  assert.equal(element('s_goldCoins21').textContent, '');
+  assert.equal(element('s_goldCoins21Count').textContent, '');
 });
 
 test('keeps an unsupported saved currency visible without calculating it', () => {
