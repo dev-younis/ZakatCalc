@@ -1,4 +1,7 @@
-(async function(){
+async function refreshPrices(){
+  const button=$('refreshPrices');
+  button.disabled=true;
+  $('live').textContent='⏳ جارٍ تحديث الأسعار…';
   try{
     const r=await fetch('/api/prices',{cache:'no-store'});
     if(!r.ok) throw new Error('exchange rates unavailable');
@@ -7,7 +10,8 @@
     currencyRates=last.currencyRates;
     currencyRates.EGP=1;
     $('currencies').querySelectorAll('select').forEach(select=>currencyOptions(select,select.value));
-    if(Number.isFinite(last.goldGramEgp) && last.goldGramEgp>0){
+    const goldAvailable=Number.isFinite(last.goldGramEgp) && last.goldGramEgp>0;
+    if(goldAvailable){
       liveGold=last.goldGramEgp;
       if(!goldEdited) applyGold();
     }
@@ -20,10 +24,14 @@
     }else{
       stale.style.display='none';
     }
-    $('live').textContent='أسعار الصرف: open.er-api.com'+(age!==null?' (آخر تحديث: '+updated.toLocaleString('en-US')+')':'')+(liveGold?'، وسعر الذهب العالمي: gold-api.com.':'؛ تعذر تحديث سعر الذهب، تحقق منه يدويًا.');
+    $('live').textContent='أسعار الصرف: open.er-api.com'+(age!==null?' (آخر تحديث: '+updated.toLocaleString('en-US')+')':'')+(goldAvailable?(goldEdited?'؛ سعر الذهب المُدخل يدويًا لم يتغير.':'، وسعر الذهب العالمي: gold-api.com.'):'؛ تعذر تحديث سعر الذهب، تحقق منه يدويًا.');
     calc();save();
   }catch(e){
-    $('live').textContent='⚠️ تعذر تحديث أسعار الصرف. تحقق من اتصالك وأعد تحميل الصفحة.';
+    $('live').textContent='⚠️ تعذر تحديث أسعار الصرف. تحقق من اتصالك وحاول مجددًا.';
     calc();
+  }finally{
+    button.disabled=false;
   }
-})();
+}
+$('refreshPrices').addEventListener('click',refreshPrices);
+refreshPrices();

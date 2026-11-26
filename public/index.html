@@ -49,7 +49,8 @@
   <h2>3) أسعار اليوم <span class="pill">قابلة للتعديل</span></h2>
   <label for="r_gold">سعر جرام الذهب عيار 24 بالجنيه</label>
   <input id="r_gold" type="number" inputmode="decimal" min="0" step="any" value="6320">
-  <div id="live" class="note" style="margin:0 0 8px">⏳ جارٍ تحديث الأسعار…</div>
+  <div id="live" class="note" role="status" style="margin:0 0 8px">⏳ جارٍ تحديث الأسعار…</div>
+  <button type="button" class="add-currency" id="refreshPrices">تحديث الأسعار</button>
   <label for="r_prem">فرق سعر الصاغة عن السعر العالمي للذهب (%)</label>
   <input id="r_prem" type="number" inputmode="decimal" value="0" style="margin-bottom:8px">
   <label for="r_silver">سعر جرام الفضة عيار 999</label>

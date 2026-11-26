@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createContext, runInContext } from 'node:vm';
 
 const source = await readFile(new URL('../src/index.js', import.meta.url), 'utf8');
 const worker = (await import(`data:text/javascript,${encodeURIComponent(source)}`)).default;
@@ -48,4 +49,47 @@ test('rejects invalid exchange data', async () => {
   const { status, data } = await requestPrices({ price: 100 }, { ...fx, rates: { EGP: 0 } });
   assert.equal(status, 502);
   assert.equal(data.error, 'upstream failed');
+});
+
+test('manual refresh updates prices, preserves manual gold edits and reports failures', async () => {
+  const script = await readFile(new URL('../public/prices.js', import.meta.url), 'utf8');
+  const elements = {
+    refreshPrices: { addEventListener(_event, handler) { this.click = handler; } },
+    live: { textContent: '' },
+    stale: { style: {} },
+    currencies: { querySelectorAll: () => [] },
+  };
+  let resolveFetch;
+  const fetch = () => new Promise(resolve => { resolveFetch = resolve; });
+  let calculations = 0, saves = 0, goldApplications = 0;
+  const context = createContext({
+    $: id => elements[id], fetch, currencyRates: {}, liveGold: null, goldEdited: false,
+    applyGold: () => goldApplications++, calc: () => calculations++, save: () => saves++,
+    fmt: String, Number, Date, isNaN,
+  });
+  runInContext(script, context);
+  assert.equal(elements.refreshPrices.disabled, true);
+  resolveFetch({ ok: true, json: async () => ({ currencyRates: { USD: 50 }, goldGramEgp: 2400, fxUpdated: new Date().toISOString() }) });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(elements.refreshPrices.disabled, false);
+  assert.equal(context.currencyRates.USD, 50);
+  assert.equal(goldApplications, 1);
+
+  context.goldEdited = true;
+  const refresh = elements.refreshPrices.click();
+  assert.equal(elements.refreshPrices.disabled, true);
+  resolveFetch({ ok: true, json: async () => ({ currencyRates: { USD: 55 }, goldGramEgp: 2500, fxUpdated: new Date().toISOString() }) });
+  await refresh;
+  assert.equal(context.currencyRates.USD, 55);
+  assert.equal(goldApplications, 1);
+  assert.match(elements.live.textContent, /يدويًا لم يتغير/);
+  assert.equal(calculations, 2);
+  assert.equal(saves, 2);
+
+  const failed = elements.refreshPrices.click();
+  resolveFetch({ ok: false });
+  await failed;
+  assert.equal(elements.refreshPrices.disabled, false);
+  assert.match(elements.live.textContent, /تعذر تحديث/);
+  assert.equal(context.currencyRates.USD, 55);
 });

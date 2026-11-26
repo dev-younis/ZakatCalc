@@ -48,6 +48,7 @@ select{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid
 .currency-row .row select{flex:2}
 .add-currency,.remove-currency{border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--pri);padding:6px 10px}
 .add-currency{font-weight:600;background:var(--pri2)}
+button:disabled{cursor:wait;opacity:.6}
 @media (max-width:360px){.wrap{padding-inline:10px}.card{padding:16px}.currency-row .row{flex-wrap:wrap}.currency-row .row>*{flex:1 1 100%}}
 @media print{
   :root{--bg:#fff;--card:#fff;--tx:#000;--bd:#999}
